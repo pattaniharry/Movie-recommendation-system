@@ -1,76 +1,71 @@
 import streamlit as st
 import pickle
-import requests
-
-from dotenv import load_dotenv
+import httpx
 import os
-import requests
+import time
+from dotenv import load_dotenv
 
+# Load API Key from .env
 load_dotenv()
-api_key = os.getenv("TMDB_API_KEY")  
+api_key = os.getenv("TMDB_API_KEY")
 
-
-# Load the full movies DataFrame
+# Load data
 movies = pickle.load(open('../data-pkl/movies.pkl', 'rb'))
 similarity = pickle.load(open('../data-pkl/similarity.pkl', 'rb'))
-  #to fetch poster 
-import httpx
-import time
 
+# Fetch poster using TMDB API
 def fetch_poster(movie_id):
-
-
-    url = f"https://api.themoviedb.org/3/movie/{movie_id}?language=en-US"
+    url =  f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={api_key}&language=en-US"
     headers = {
         "accept": "application/json",
-        "Authorization": f"Bearer {api_key}",
-        "User-Agent": "Mozilla/5.0"  # Helps prevent TMDB rejecting request
+        "User-Agent": "Mozilla/5.0"
     }
 
-    
-    response = requests.get(url, headers=headers, timeout=10)
-    data = response.json()
-    return f"https://image.tmdb.org/t/p/w500" + data['poster_path']
+    try:
+        with httpx.Client(timeout=10) as client:
+            response = client.get(url, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+            poster_path = data.get('poster_path')
+            if poster_path:
+                return f"https://image.tmdb.org/t/p/w500{poster_path}"
+            else:
+                return "https://via.placeholder.com/500x750.png?text=No+Image"
+    except Exception as e:
+        print("❌ Failed to fetch poster:", e)
+        return "https://via.placeholder.com/500x750.png?text=No+Image"
 
-
-   
+# Recommendation logic
 def recommend(movie):
     movie_index = movies[movies['title'] == movie].index[0]
     distances = similarity[movie_index]
     movies_list = sorted(list(enumerate(distances)), reverse=True, key=lambda x: x[1])[1:6]
 
     recommended_movies = []
-    recommended_movies_posters = []
+    recommended_posters = []
     for i in movies_list:
-        movie_id = i[0]
-
+        movie_id = movies.iloc[i[0]].movie_id  # fetch correct movie_id (not index)
         recommended_movies.append(movies.iloc[i[0]].title)
-        recommended_movies_posters.append(fetch_poster(movie_id))
+        recommended_posters.append(fetch_poster(movie_id))
+        time.sleep(0.3)  # rate limit
+    return recommended_movies, recommended_posters
 
-    return recommended_movies,recommended_movies_posters
-
-# UI
+# ================================
+# STREAMLIT UI
+# ================================
 st.title('🎬 Movie Recommender System')
 
 selected_movie_name = st.selectbox(
     "Choose your Favorite Movie",
-    movies['title'].values  # Use titles for dropdown
+    movies['title'].values
 )
 
 if st.button('Recommend'):
-    name, posters = recommend(selected_movie_name)
+    names, posters = recommend(selected_movie_name)
     st.subheader("Top 5 Recommendations:")
-    col1, col2, col3 = st.columns(3)
 
-    with col1:
-        st.header("A cat")
-        st.image("https://static.streamlit.io/examples/cat.jpg")
-
-    with col2:
-        st.header("A dog")
-        st.image("https://static.streamlit.io/examples/dog.jpg")
-
-    with col3:
-        st.header("An owl")
-        st.image("https://static.streamlit.io/examples/owl.jpg")
-
+    cols = st.columns(5)
+    for i in range(5):
+        with cols[i]:
+            st.image(posters[i])
+            st.caption(names[i])
