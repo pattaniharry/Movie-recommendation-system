@@ -17,7 +17,14 @@ file_path = os.path.join(current_dir, '../data-pkl/movies.pkl')
 with open(file_path, 'rb') as f:
     movies = pickle.load(f)
 
-similarity = pickle.load(open('../data-pkl/similarity.pkl', 'rb'))
+
+base_path = os.path.dirname(os.path.abspath(__file__))
+similarity_path = os.path.join(base_path, '..', 'data-pkl', 'similarity.pkl')
+
+with open(similarity_path, 'rb') as f:
+    similarity = pickle.load(f)
+
+
 
 # Fetch poster using TMDB API
 def fetch_poster(movie_id):
