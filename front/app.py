@@ -10,7 +10,13 @@ load_dotenv()
 api_key = os.getenv("TMDB_API_KEY")
 
 # Load data
-movies = pickle.load(open('../data-pkl/movies.pkl', 'rb'))
+current_dir = os.path.dirname(__file__)
+file_path = os.path.join(current_dir, '../data-pkl/movies.pkl')
+
+
+with open(file_path, 'rb') as f:
+    movies = pickle.load(f)
+
 similarity = pickle.load(open('../data-pkl/similarity.pkl', 'rb'))
 
 # Fetch poster using TMDB API
